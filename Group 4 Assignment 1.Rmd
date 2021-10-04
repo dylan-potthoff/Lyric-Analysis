@@ -1,0 +1,186 @@
+Group 4 Assignment 1
+
+##Question 1
+```{r}
+library(tidyverse)
+library(tidymodels)
+```
+
+```{r}
+gms<-read_rds("game_summary (1).Rds")
+gms
+```
+
+```{r}
+gms%>%
+  filter(yearSeason == "2019")%>%
+  ggplot(aes(x=oreb_pct*100))+
+  geom_histogram(color = "blue")+
+  labs(title="Frequency Distribution Graph of Offensive Rebound Percent")+
+  labs(x= "offensive rebound percentage")+
+  labs(y= "frequency")
+```
+
+```{r}
+gms_2019<-
+    filter(gms,yearSeason == "2019")
+```
+
+
+```{r}
+summary(gms_2019$oreb_pct)
+mean(gms_2019$oreb_pct)
+```
+
+##Question 2
+```{r}
+library(tidyverse)
+library(tidymodels)
+```
+
+```{r}
+gms<-read_rds("game_summary (1).Rds")
+gms
+```
+
+```{r}
+gms%>%
+  filter(yearSeason==2019)%>%
+  group_by(isWin)%>%
+  summarize(mean(oreb_pct))
+```
+
+```{r}
+set.seed(210916)
+
+sample_size<-100
+
+
+gms_oreb_pct_rs<-NULL ##  Create a NULL variable: will fill this in later
+
+for (i in 1:10000){ # Repeat the steps below 10,000 times
+  gms_oreb_pct_rs<-gms%>% ## Create a dataset called gms_oreb_pct_rs (rs=resampled)
+  filter(yearSeason==2019)%>%  ## Just 2019
+  sample_n(size=sample_size) %>% ## Sample 100 games
+  group_by(isWin)%>% ## Group by won or lost
+  summarize(mean_oreb_pct=mean(oreb_pct))%>% ## Calculate mean oreb_pct for winners and losers
+    bind_rows(gms_oreb_pct_rs) ## add this result to the existing dataset
+}
+gms_oreb_pct_rs
+```
+
+```{r}
+gms_oreb_pct_rs%>%
+  group_by(isWin)%>%
+  summarise(mean_of_means=mean(mean_oreb_pct))
+```
+
+```{r}
+gms_oreb_pct_rs <- gms_oreb_pct_rs%>%
+  mutate(`Game Outcome`=ifelse(isWin, "Winning Team", "Losing Team"))
+```
+
+```{r}
+gms_oreb_pct_rs%>%
+  filter(isWin | !isWin)%>%
+  ggplot(aes(x=mean_oreb_pct,fill=`Game Outcome`))+
+  geom_histogram(alpha=.4)+
+  labs(title=" Offensive Rebound Percentage by Game Outcome")+
+  labs(x= "Offensive Rebound Percentage")+
+  geom_vline(xintercept =.216, color="red")+
+  geom_vline(xintercept = .238, color="blue")
+```
+
+##Question 3
+Uncertainty winners
+```{r}
+gms_oreb_pct_rs%>%
+  filter(isWin)%>%
+  summarize(Percentile_25_Winning_Team=quantile(mean_oreb_pct,.25),
+            Percentile_75_Winning_Team=quantile(mean_oreb_pct,.75))
+```
+
+
+Uncertainty Losers
+```{r}
+gms_oreb_pct_rs%>%
+  filter(!isWin)%>%
+  summarize(Percentile_25_Losing_Team=quantile(mean_oreb_pct,.25),
+            Percentile_75_Losing_Team=quantile(mean_oreb_pct,.75))
+```
+
+
+
+
+
+##Question 4
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+```
+
+## R Markdown
+```{r}
+rebound_rest<-read_rds("game_summary (1).Rds")
+glimpse(rebound_rest)
+```
+
+```{r}
+rebound_rest <- rebound_rest %>%
+  filter(yearSeason == "2019") %>%
+  select(teamrest, oreb_pct)%>%
+  filter (teamrest < 10)%>%
+  group_by(teamrest)%>%
+  summarise(avg_oreb_pct = mean(oreb_pct))
+```
+
+
+```{r}
+p <- ggplot(data = rebound_rest, aes(x = as.factor(teamrest), y=avg_oreb_pct)) +
+  labs(title = "Offensive Rebounds vs Team Rest") +
+  labs(x = "Days of Rest") +
+  labs(y = "Offensive Rebound Percentage") +
+  labs(bins = 10) +
+  geom_bar (fill = "purple", stat="identity")
+p
+```
+
+```{r}
+error_calc<-read_rds("game_summary (1).Rds")
+error_calc %>% 
+  group_by(teamrest) %>%
+  count()
+```
+
+```{r}
+error_calc<- error_calc%>%
+  mutate(rested = ifelse (teamrest < 3, 0, 1))
+```
+
+```{r}
+gms_oreb_rs<-NULL ##  Create a NULL variable: will fill this in later
+set.seed(5)
+for (i in 1:10000){ # Repeat the steps below 10,000 times
+  gms_oreb_rs<-error_calc%>% ## Create a dataset called gms_oreb_rs (rs=resampled)
+  filter(yearSeason==2019)%>%  ## Just 2019
+  sample_n(size=100) %>% ## Sample 100 games
+  group_by(rested)%>% ## Group by rested or not
+  summarize(mean_oreb=mean(oreb_pct))%>% ## Calculate mean oreb_pct for winners and losers
+    bind_rows(gms_oreb_rs) ## add this result to the existing dataset
+}
+```
+
+```{r}
+gms_oreb_rs%>%
+  group_by(rested)%>%
+  summarise(mean_of_means=mean(mean_oreb))
+```
+
+```{r}
+gms_oreb_rs%>%
+  ggplot(aes(x=mean_oreb,fill=rested))+
+  geom_density(alpha=.3)+
+  geom_vline(xintercept =.227)
+```
+
